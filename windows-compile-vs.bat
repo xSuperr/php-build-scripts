@@ -22,6 +22,9 @@ set LIBYAML_VER=0.2.5
 set PTHREAD_W32_VER=3.0.0
 set LEVELDB_MCPE_VER=1c7564468b41610da4f498430e795ca4de0931ff
 set LIBDEFLATE_VER=dd12ff2b36d603dbb7fa8838fe7e7176fcbd4f6f
+set LIBRDKAFKA_VER=2.1.1
+set LIBZSTD_VER=1.5.5
+set LIBGRPC_VER=1.56.2
 
 set PHP_PMMPTHREAD_VER=6.1.0
 set PHP_YAML_VER=2.2.3
@@ -36,6 +39,10 @@ set PHP_XXHASH_VER=0.2.0
 set PHP_XDEBUG_VER=3.3.1
 set PHP_ARRAYDEBUG_VER=0.2.0
 set PHP_ENCODING_VER=0.3.0
+set PHP_VANILLAGENERATOR_VER=2.1.7
+set PHP_LIBKAFKA_VER=6.0.3
+set PHP_ZSTD_VER=0.13.3
+SET PHP_GRPC_VER=1.57.3
 
 set script_path=%~dp0
 set log_file=%script_path%compile.log
@@ -135,6 +142,99 @@ call bin\phpsdk_deps.bat -u -t %VC_VER% -b %PHP_MAJOR_VER% -a %ARCH% -f -d %DEPS
 call :pm-echo "Getting additional dependencies..."
 cd /D "%DEPS_DIR%"
 
+call :pm-echo "Downloading grpc/grpc version %LIBGRPC_VER%..."
+git clone -b v%LIBGRPC_VER% --depth=1 https://github.com/grpc/grpc >>"%log_file%" 2>&1 || exit 1
+cd /D grpc
+
+call :pm-echo "Updating submodules..."
+git submodule update --depth=1 --init >>"%log_file%" 2>&1 || exit 1
+
+call :pm-echo "Generating build configuration..."
+cd cmake
+md build
+cd build
+cmake -GNinja^
+ -DCMAKE_PREFIX_PATH="%DEPS_DIR%"^
+ -DCMAKE_INSTALL_PREFIX="%DEPS_DIR%"^
+ -DCMAKE_BUILD_TYPE="%MSBUILD_CONFIGURATION%"^
+ -DZLIB_LIBRARY="%DEPS_DIR%\lib\zlib_a.lib"^
+ -DgRPC_BUILD_CSHARP_EXT=OFF^
+ -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF^
+ -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF^
+ -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF^
+ -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF^
+ -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF^
+ -DgRPC_SSL_PROVIDER="package"^
+ -DgRPC_ZLIB_PROVIDER="package"^
+ ..\.. >>"%log_file%" 2>&1 || exit 1
+
+call :pm-echo "Compiling..."
+cmake --build . >> "%log_file%" 2>&1 || exit 1
+call :pm-echo "Installing files..."
+cmake -P cmake_install.cmake >> "%log_file%" 2>&1 || exit 1
+cd /D "%DEPS_DIR%"
+
+call :pm-echo "Moving php-gRPC extension source..."
+
+move grpc\third_party\protobuf\php\ext\google\protobuf ..\php-src\ext\protobuf >> "%log_file%" 2>&1 || exit 1
+move grpc\third_party\protobuf\third_party ..\php-src\ext\protobuf\third_party >> "%log_file%" 2>&1 || exit 1
+cd ..\php-src\ext\protobuf
+
+call :pm-echo "Generating files..."
+echo|(set /p="ARG_ENABLE("protobuf", "Enable Protobuf extension", "yes");" & echo.) >> config.w32
+echo|(set /p="" & echo.) >> config.w32
+echo|(set /p="if (PHP_PROTOBUF != "no") {" & echo.) >> config.w32
+echo|(set /p="  EXTENSION("protobuf", "arena.c array.c convert.c def.c map.c message.c names.c php-upb.c protobuf.c", PHP_PROTOBUF_SHARED, "");" & echo.) >> config.w32
+echo|(set /p="" & echo.) >> config.w32
+echo|(set /p="  ADD_SOURCES(configure_module_dirname + "/third_party/utf8_range", "naive.c range2-neon.c range2-sse.c", "protobuf");" & echo.) >> config.w32
+echo|(set /p="" & echo.) >> config.w32
+echo|(set /p="  AC_DEFINE('HAVE_PROTOBUF', 1, '');" & echo.) >> config.w32
+echo|(set /p="}" & echo.) >> config.w32
+
+cd /D "%DEPS_DIR%"
+
+call :pm-echo "Downloading zstd version %LIBZSTD_VER%..."
+call :get-zip "https://github.com/facebook/zstd/archive/v%LIBZSTD_VER%.zip" || exit 1
+move zstd-%LIBZSTD_VER% zstd >> "%log_file%" 2>&1
+cd zstd/build/cmake
+call :pm-echo "Generating build configuration..."
+cmake -G "%CMAKE_TARGET%" -A "%ARCH%"^
+ -DCMAKE_PREFIX_PATH="%DEPS_DIR%"^
+ -DCMAKE_INSTALL_PREFIX="%DEPS_DIR%"^
+ -DBUILD_SHARED_LIBS=ON^
+ . >>"%log_file%" 2>&1 || exit 1
+call :pm-echo "Compiling..."
+msbuild ALL_BUILD.vcxproj /p:Configuration=%MSBUILD_CONFIGURATION% /m >>"%log_file%" 2>&1 || exit 1
+call :pm-echo "Installing files..."
+msbuild INSTALL.vcxproj /p:Configuration=%MSBUILD_CONFIGURATION% /m >>"%log_file%" 2>&1 || exit 1
+cd /D "%DEPS_DIR%"
+
+call :pm-echo "Downloading librdkafka version %LIBRDKAFKA_VER%..."
+call :get-zip https://github.com/confluentinc/librdkafka/archive/v%LIBRDKAFKA_VER%.zip || exit 1
+move librdkafka-* librdkafka >>"%log_file%" 2>&1
+cd /D librdkafka
+
+call :pm-echo "Generating build configuration..."
+
+cmake -G "%CMAKE_TARGET%" -A "%ARCH%"^
+ -DCMAKE_PREFIX_PATH="%DEPS_DIR%"^
+ -DCMAKE_INSTALL_PREFIX="%DEPS_DIR%"^
+ -DBUILD_SHARED_LIBS=ON^
+ . >>"%log_file%" 2>&1 || exit 1
+
+call :pm-echo "Compiling..."
+msbuild ALL_BUILD.vcxproj /p:Configuration=%MSBUILD_CONFIGURATION% >>"%log_file%" 2>&1 || exit 1
+call :pm-echo "Installing files..."
+msbuild INSTALL.vcxproj /p:Configuration=%MSBUILD_CONFIGURATION% /m >>"%log_file%" 2>&1 || exit 1
+
+cd /D "%DEPS_DIR%"
+
+REM for no reason, php-rdkafka check for librdkafka and not rdkafka
+REM move them to the appropriate location for php-rdkafka compatibility.
+call :pm-echo "Moving libraries files for php-rdkafka compatibility..."
+move "lib\rdkafka.lib" "lib\librdkafka.lib" >>"%log_file%" 2>&1
+move "lib\rdkafka++.lib" "lib\librdkafka++.lib" >>"%log_file%" 2>&1
+
 call :pm-echo "Downloading LibYAML version %LIBYAML_VER%..."
 call :get-zip https://github.com/yaml/libyaml/archive/%LIBYAML_VER%.zip || exit 1
 move libyaml-%LIBYAML_VER% libyaml >>"%log_file%" 2>&1
@@ -223,6 +323,7 @@ call :pm-echo "Getting additional PHP extensions..."
 cd /D php-src\ext
 
 call :get-extension-zip-from-github "pmmpthread"            "%PHP_PMMPTHREAD_VER%"            "pmmp"     "ext-pmmpthread"          || exit 1
+call :get-extension-zip-from-github "vanillagenerator"  "%PHP_VANILLAGENERATOR_VER%"    "NetherGamesMC"     "ext-vanillagenerator"  || exit 1
 call :get-extension-zip-from-github "yaml"                  "%PHP_YAML_VER%"                  "php"      "pecl-file_formats-yaml"  || exit 1
 call :get-extension-zip-from-github "chunkutils2"           "%PHP_CHUNKUTILS2_VER%"           "pmmp"     "ext-chunkutils2"         || exit 1
 call :get-extension-zip-from-github "igbinary"              "%PHP_IGBINARY_VER%"              "igbinary" "igbinary"                || exit 1
@@ -234,6 +335,9 @@ call :get-extension-zip-from-github "xxhash"                "%PHP_XXHASH_VER%"  
 call :get-extension-zip-from-github "xdebug"                "%PHP_XDEBUG_VER%"                "xdebug"   "xdebug"                  || exit 1
 call :get-extension-zip-from-github "arraydebug"            "%PHP_ARRAYDEBUG_VER%"            "pmmp"     "ext-arraydebug"          || exit 1
 call :get-extension-zip-from-github "encoding"              "%PHP_ENCODING_VER%"              "pmmp"     "ext-encoding"            || exit 1
+call :get-extension-zip-from-github "rdkafka"               "%PHP_LIBKAFKA_VER%"             "arnaud-lb" "php-rdkafka"             || exit 1
+call :get-extension-zip-from-github "zstd"                  "%PHP_ZSTD_VER%"             "kjdev"     "php-ext-zstd"                || exit 1
+call :get-extension-zip-from-github "grpc"                  "%PHP_GRPC_VER%"            "larryTheCoder"  "php-grpc"                || exit 1
 
 call :pm-echo " - crypto: downloading %PHP_CRYPTO_VER%..."
 git clone https://github.com/bukka/php-crypto.git crypto >>"%log_file%" 2>&1 || exit 1
@@ -278,6 +382,10 @@ call configure^
  --enable-opcache^
  --enable-opcache-jit=%PHP_JIT_ENABLE_ARG%^
  --enable-phar^
+ --enable-vanillagenerator=shared^
+ --enable-zstd^
+ --enable-grpc=shared^
+ --enable-protobuf=shared^
  --enable-recursionguard=shared^
  --enable-sockets^
  --enable-tokenizer^
@@ -309,6 +417,7 @@ call configure^
  --with-xdebug-compression^
  --with-xml^
  --with-yaml^
+ --with-rdkafka=shared^
  --with-pdo-mysql^
  --with-pdo-sqlite^
  --without-readline >>"%log_file%" 2>&1 || call :pm-fatal-error "Error configuring PHP"
@@ -329,7 +438,9 @@ rmdir /s /q "%SOURCES_PATH%\php-src\%ARCH%\Release_TS\php-%PHP_DISPLAY_VER%\lib\
 
 call :pm-echo "Copying artifacts..."
 cd /D "%outpath%"
-mkdir bin
+mkdir bin bin\grpc
+move "%DEPS_DIR%\grpc\cmake\build\grpc_php_plugin.exe" "bin\grpc\grpc_php_plugin.exe"
+move "%DEPS_DIR%\grpc\cmake\build\third_party\protobuf\protoc.exe" "bin\grpc\protoc.exe"
 move "%SOURCES_PATH%\php-src\%ARCH%\%OUT_PATH_REL%_TS\php-%PHP_DISPLAY_VER%" bin\php
 cd /D bin\php
 
@@ -366,6 +477,10 @@ if "%PM_VERSION_MAJOR%" geq "5" (
 (echo ;Optional extensions, supplied for plugin use)>>"%php_ini%"
 (echo extension=php_fileinfo.dll)>>"%php_ini%"
 (echo extension=php_gd.dll)>>"%php_ini%"
+(echo extension=php_grpc.dll)>>"%php_ini%"
+(echo extension=php_protobuf.dll)>>"%php_ini%"
+(echo extension=php_vanillagenerator.dll)>>"%php_ini%"
+(echo extension=php_rdkafka.dll)>>"%php_ini%"
 (echo extension=php_mysqli.dll)>>"%php_ini%"
 (echo extension=php_sqlite3.dll)>>"%php_ini%"
 (echo ;Optional extensions, supplied for debugging)>>"%php_ini%"

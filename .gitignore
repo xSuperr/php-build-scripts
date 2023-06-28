@@ -1,5 +1,8 @@
 bin/
+bin-debug/
 install_data/
+download_cache/
+test.dSYM/
 install.log
 temp_data/
 compile.log
