@@ -301,6 +301,7 @@ call configure^
  --with-openssl^
  --with-pcre-jit^
  --with-pmmpthread=shared^
+ --with-pmmpthread-sockets^
  --with-simplexml^
  --with-sodium^
  --with-sqlite3=shared^
