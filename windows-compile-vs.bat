@@ -24,7 +24,7 @@ set LEVELDB_MCPE_VER=1c7564468b41610da4f498430e795ca4de0931ff
 set LIBDEFLATE_VER=dd12ff2b36d603dbb7fa8838fe7e7176fcbd4f6f
 
 set PHP_PTHREADS_VER=4.2.2
-set PHP_PMMPTHREAD_VER=6.0.12
+set PHP_PMMPTHREAD_VER=6.1.0
 set PHP_YAML_VER=2.2.3
 set PHP_CHUNKUTILS2_VER=0.3.5
 set PHP_IGBINARY_VER=3.2.15
@@ -34,9 +34,9 @@ set PHP_RECURSIONGUARD_VER=0.1.0
 set PHP_MORTON_VER=0.1.2
 set PHP_LIBDEFLATE_VER=0.2.1
 set PHP_XXHASH_VER=0.2.0
-set PHP_XDEBUG_VER=3.3.0
+set PHP_XDEBUG_VER=3.3.1
 set PHP_ARRAYDEBUG_VER=0.2.0
-set PHP_ENCODING_VER=0.2.3
+set PHP_ENCODING_VER=0.3.0
 
 set script_path=%~dp0
 set log_file=%script_path%compile.log
@@ -76,6 +76,10 @@ if "%PM_VERSION_MAJOR%"=="" (
     call :pm-echo-error "Please specify PocketMine-MP major version by setting the PM_VERSION_MAJOR environment variable"
     exit 1
 )
+if "%PM_VERSION_MAJOR%" lss "4" (
+    call :pm-echo-error "PocketMine-MP 3.x and older are no longer supported"
+    exit 1
+)
 
 call :pm-echo "Compiling with configuration for PocketMine-MP %PM_VERSION_MAJOR%"
 
@@ -88,7 +92,7 @@ if "%SOURCES_PATH%"=="" (
 )
 call :pm-echo "Using path %SOURCES_PATH% for build sources"
 
-call :check-vs-exists 2019 16 "Program Files (x86)" || call :pm-fatal-error "Please install Visual Studio 2019"
+call :check-vs-exists 2022 17 "Program Files" || call :check-vs-exists 2019 16 "Program Files (x86)" || call :pm-fatal-error "Please install Visual Studio 2019"
 
 REM export an env var to override this if you're using something other than the community edition
 if "%VS_EDITION%"=="" (
@@ -222,7 +226,7 @@ cd /D php-src\ext
 set THREAD_EXT_FLAGS=""
 if "%PM_VERSION_MAJOR%" geq "5" (
     call :get-extension-zip-from-github "pmmpthread" "%PHP_PMMPTHREAD_VER%" "pmmp" "ext-pmmpthread" || exit 1
-    set THREAD_EXT_FLAGS="--with-pmmpthread=shared"
+    set THREAD_EXT_FLAGS="--with-pmmpthread=shared --with-pmmpthread-sockets"
 ) else (
     call :get-extension-zip-from-github "pthreads" "%PHP_PTHREADS_VER%" "pmmp" "ext-pmmpthread" || exit 1
     set THREAD_EXT_FLAGS="--with-pthreads=shared"

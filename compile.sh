@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 [ -z "$PHP_VERSION" ] && PHP_VERSION="8.1.26"
 
-ZLIB_VERSION="1.3"
+ZLIB_VERSION="1.3.1"
 GMP_VERSION="6.3.0"
-CURL_VERSION="curl-8_5_0"
+CURL_VERSION="curl-8_7_1"
 YAML_VERSION="0.2.5"
 LEVELDB_VERSION="1c7564468b41610da4f498430e795ca4de0931ff"
 LIBXML_VERSION="2.10.1" #2.10.2 requires automake 1.16.3, which isn't easily available on Ubuntu 20.04
-LIBPNG_VERSION="1.6.40"
-LIBJPEG_VERSION="9e"
-OPENSSL_VERSION="3.1.4"
+LIBPNG_VERSION="1.6.43"
+LIBJPEG_VERSION="9f"
+OPENSSL_VERSION="3.2.1"
 LIBZIP_VERSION="1.10.1"
-SQLITE3_VERSION="3440200" #3.44.2
-LIBDEFLATE_VERSION="dd12ff2b36d603dbb7fa8838fe7e7176fcbd4f6f" #1.19
+SQLITE3_VERSION="3450200" #3.45.2
+LIBDEFLATE_VERSION="275aa5141db6eda3587214e0f1d3a134768f557d" #1.20
 
 EXT_PTHREADS_VERSION="4.2.2"
-EXT_PMMPTHREAD_VERSION="6.0.12"
+EXT_PMMPTHREAD_VERSION="6.1.0"
 EXT_YAML_VERSION="2.2.3"
 EXT_LEVELDB_VERSION="317fdcd8415e1566fc2835ce2bdb8e19b890f9f3"
 EXT_CHUNKUTILS2_VERSION="0.3.5"
-EXT_XDEBUG_VERSION="3.3.0"
+EXT_XDEBUG_VERSION="3.3.1"
 EXT_IGBINARY_VERSION="3.2.15"
 EXT_CRYPTO_VERSION="0.3.2"
 EXT_RECURSIONGUARD_VERSION="0.1.0"
@@ -27,7 +27,7 @@ EXT_LIBDEFLATE_VERSION="0.2.1"
 EXT_MORTON_VERSION="0.1.2"
 EXT_XXHASH_VERSION="0.2.0"
 EXT_ARRAYDEBUG_VERSION="0.2.0"
-EXT_ENCODING_VERSION="0.2.3"
+EXT_ENCODING_VERSION="0.3.0"
 
 function write_out {
 	echo "[$1] $2"
@@ -237,6 +237,9 @@ done
 
 if [ "$PM_VERSION_MAJOR" == "" ]; then
 	write_error "Please specify PocketMine-MP major version target with -P (e.g. -P5)"
+	exit 1
+elif [ "$PM_VERSION_MAJOR" -lt 4 ]; then
+	write_error "PocketMine-MP 3.x and older are no longer supported"
 	exit 1
 fi
 
@@ -634,6 +637,9 @@ function build_curl {
 		download_github_src "curl/curl" "$CURL_VERSION" "curl" | tar -zx >> "$DIR/install.log" 2>&1
 		write_configure
 		cd "$curl_dir"
+		if [[ "$(uname -s)" == "Darwin" ]]; then
+			sed -i'.bak' 's/^CURL_CONVERT_INCLUDE_TO_ISYSTEM//' ./configure.ac
+		fi
 		./buildconf --force >> "$DIR/install.log" 2>&1
 		RANLIB=$RANLIB ./configure --disable-dependency-tracking \
 		--enable-ipv6 \
