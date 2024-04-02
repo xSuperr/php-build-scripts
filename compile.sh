@@ -662,7 +662,6 @@ function build_curl {
 		--without-brotli \
 		--without-nghttp2 \
 		--without-zstd \
-		--disable-docs \
 		--with-zlib="$INSTALL_DIR" \
 		--with-ssl="$INSTALL_DIR" \
 		--enable-threaded-resolver \
