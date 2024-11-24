@@ -35,6 +35,7 @@ EXT_RDKAFKA_VERSION="6.0.3"
 EXT_ZSTD_VERSION="0.13.3"
 EXT_GRPC_VERSION="1.57.3"
 EXT_VANILLAGENERATOR_VERSION="abd059fd2ca79888aab3b9c5070d83ceea55fada"
+EXT_SNAPPY_VERSION="0.2.2"
 
 function write_out {
 	echo "[$1] $2"
@@ -1338,6 +1339,8 @@ get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
 get_github_extension "grpc" "$EXT_GRPC_VERSION" "larryTheCoder" "php-grpc"
 
 get_github_extension "vanillagenerator" "$EXT_VANILLAGENERATOR_VERSION" "NetherGamesMC" "ext-vanillagenerator"
+
+get_github_extension "snappy" "$EXT_SNAPPY_VERSION" "kjdev" "php-ext-snappy"
 
 get_github_extension "rdkafka" "$EXT_RDKAFKA_VERSION" "arnaud-lb" "php-rdkafka"
 
