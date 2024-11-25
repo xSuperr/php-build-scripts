@@ -1346,7 +1346,7 @@ cd "$BUILD_DIR/php/ext/snappy"
 git checkout "$EXT_SNAPPY_VERSION" >> "$DIR/install.log" 2>&1
 git submodule update --init --recursive >> "$DIR/install.log" 2>&1
 cd "$BUILD_DIR"
-echo " done!"
+write_done
 
 get_github_extension "rdkafka" "$EXT_RDKAFKA_VERSION" "arnaud-lb" "php-rdkafka"
 
@@ -1566,6 +1566,7 @@ $HAVE_MYSQLI \
 --enable-grpc="$INSTALL_DIR" \
 --enable-protobuf \
 --enable-zstd \
+--enable-snappy \
 --enable-vanillagenerator \
 --enable-opcache=$HAVE_OPCACHE \
 --enable-opcache-jit=$HAVE_OPCACHE_JIT \
