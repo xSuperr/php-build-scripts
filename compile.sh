@@ -1340,7 +1340,13 @@ get_github_extension "grpc" "$EXT_GRPC_VERSION" "larryTheCoder" "php-grpc"
 
 get_github_extension "vanillagenerator" "$EXT_VANILLAGENERATOR_VERSION" "NetherGamesMC" "ext-vanillagenerator"
 
-get_github_extension "snappy" "$EXT_SNAPPY_VERSION" "kjdev" "php-ext-snappy"
+echo -n "  snappy: downloading $EXT_SNAPPY_VERSION..."
+git clone https://github.com/kjdev/php-ext-snappy.git "$BUILD_DIR/php/ext/snappy" >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR/php/ext/snappy"
+git checkout "$EXT_SNAPPY_VERSION" >> "$DIR/install.log" 2>&1
+git submodule update --init --recursive >> "$DIR/install.log" 2>&1
+cd "$BUILD_DIR"
+echo " done!"
 
 get_github_extension "rdkafka" "$EXT_RDKAFKA_VERSION" "arnaud-lb" "php-rdkafka"
 
