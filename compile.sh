@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-[ -z "$PHP_VERSION" ] && PHP_VERSION="8.2.17"
+[ -z "$PHP_VERSION" ] && PHP_VERSION="8.3.4"
 
 ZLIB_VERSION="1.3.1"
 GMP_VERSION="6.3.0"
@@ -16,6 +16,7 @@ LIBDEFLATE_VERSION="275aa5141db6eda3587214e0f1d3a134768f557d" #1.20
 LIBRDKAFKA_VER="2.1.1"
 LIBZSTD_VER="1.5.5"
 LIBGRPC_VER="1.58.1"
+LIBSNAPPY_VER="1.2.1"
 SASL2_VERSION="2.1.28"
 
 EXT_PMMPTHREAD_VERSION="6.1.0"
@@ -25,6 +26,7 @@ EXT_CHUNKUTILS2_VERSION="0.3.5"
 EXT_XDEBUG_VERSION="3.3.1"
 EXT_IGBINARY_VERSION="3.2.15"
 EXT_CRYPTO_VERSION="abbe7cbf869f96e69f2ce897271a61d32f43c7c0"
+EXT_SNAPPY_VERSION="ab8b2b7375641f47deb21d8e8ba1a00ea5364cf6"
 EXT_RECURSIONGUARD_VERSION="0.1.0"
 EXT_LIBDEFLATE_VERSION="0.2.1"
 EXT_MORTON_VERSION="0.1.2"
@@ -32,10 +34,9 @@ EXT_XXHASH_VERSION="0.2.0"
 EXT_ARRAYDEBUG_VERSION="0.2.0"
 EXT_ENCODING_VERSION="0.3.0"
 EXT_RDKAFKA_VERSION="6.0.3"
-EXT_ZSTD_VERSION="0.13.3"
+EXT_ZSTD_VERSION="0.13.0"
 EXT_GRPC_VERSION="1.57.3"
 EXT_VANILLAGENERATOR_VERSION="abd059fd2ca79888aab3b9c5070d83ceea55fada"
-EXT_SNAPPY_VERSION="0.2.2"
 
 function write_out {
 	echo "[$1] $2"
@@ -553,6 +554,46 @@ write_download
 download_github_src "php/php-src" "php-$PHP_VERSION" "php" | tar -zx >> "$DIR/install.log" 2>&1
 mv php-src-php-$PHP_VERSION php
 write_done
+
+function build_snappy {
+	write_library snappy "$LIBSNAPPY_VER"
+	local snappy_dir="./snappy-$LIBSNAPPY_VER"
+
+	if cant_use_cache "$snappy_dir"; then
+		rm -rf "$snappy_dir"
+		write_download
+		git_download_file "https://github.com/google/snappy.git" "snappy" "$LIBSNAPPY_VER" $snappy_dir >> "$DIR/install.log" 2>&1
+		echo -n " checking..."
+		pushd $snappy_dir >> "$DIR/install.log" 2>&1
+		if [ "$DO_STATIC" != "yes" ]; then
+		  local EXTRA_FLAGS="-DBUILD_SHARED_LIBS=ON"
+		else
+		  local EXTRA_FLAGS=""
+		fi
+		mkdir -p cmake/build
+		pushd cmake/build >> "$DIR/install.log" 2>&1
+		cmake ../.. \
+		  -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+		  -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+		  -DCMAKE_INSTALL_LIBDIR=lib \
+		  -DCMAKE_BUILD_TYPE=Release \
+		  $CMAKE_GLOBAL_EXTRA_FLAGS \
+		  $EXTRA_FLAGS \
+		  >> "$DIR/install.log" 2>&1
+		write_compile
+		make -j $THREADS >> "$DIR/install.log" 2>&1 && mark_cache
+	else
+		write_caching
+		pushd "$grpc_dir/cmake/build"
+	fi
+
+	write_install
+	make install >> "$DIR/install.log" 2>&1
+	popd >> "$DIR/install.log" 2>&1
+	popd >> "$DIR/install.log" 2>&1
+
+	write_done
+}
 
 function build_sasl2 {
 	write_library sasl2 "$SASL2_VERSION"
@@ -1242,6 +1283,7 @@ function build_libdeflate {
 
 cd "$LIB_BUILD_DIR"
 
+build_snappy
 build_zlib
 build_gmp
 build_openssl
@@ -1322,6 +1364,8 @@ git submodule update --init --recursive >> "$DIR/install.log" 2>&1
 cd "$BUILD_DIR"
 write_done
 
+get_github_extension "snappy" "$EXT_SNAPPY_VERSION" "kjdev" "php-ext-snappy"
+
 get_github_extension "leveldb" "$EXT_LEVELDB_VERSION" "pmmp" "php-leveldb"
 
 get_github_extension "chunkutils2" "$EXT_CHUNKUTILS2_VERSION" "pmmp" "ext-chunkutils2"
@@ -1339,14 +1383,6 @@ get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
 get_github_extension "grpc" "$EXT_GRPC_VERSION" "larryTheCoder" "php-grpc"
 
 get_github_extension "vanillagenerator" "$EXT_VANILLAGENERATOR_VERSION" "NetherGamesMC" "ext-vanillagenerator"
-
-echo -n "  snappy: downloading $EXT_SNAPPY_VERSION..."
-git clone https://github.com/kjdev/php-ext-snappy.git "$BUILD_DIR/php/ext/snappy" >> "$DIR/install.log" 2>&1
-cd "$BUILD_DIR/php/ext/snappy"
-git checkout "$EXT_SNAPPY_VERSION" >> "$DIR/install.log" 2>&1
-git submodule update --init --recursive >> "$DIR/install.log" 2>&1
-cd "$BUILD_DIR"
-write_done
 
 get_github_extension "rdkafka" "$EXT_RDKAFKA_VERSION" "arnaud-lb" "php-rdkafka"
 
@@ -1526,6 +1562,7 @@ $HAS_GD \
 $HAS_FFI \
 --with-rdkafka="$INSTALL_DIR" \
 --with-leveldb="$INSTALL_DIR" \
+--with-snappy-includedir="$INSTALL_DIR" \
 --without-readline \
 $HAS_DEBUG \
 --enable-chunkutils2 \
@@ -1645,7 +1682,7 @@ echo "error_reporting=-1" >> "$INSTALL_DIR/bin/php.ini"
 echo "display_errors=1" >> "$INSTALL_DIR/bin/php.ini"
 echo "display_startup_errors=1" >> "$INSTALL_DIR/bin/php.ini"
 echo "recursionguard.enabled=0 ;disabled due to minor performance impact, only enable this if you need it for debugging" >> "$INSTALL_DIR/bin/php.ini"
-echo "extension_dir=./$INSTALL_DIR/lib/php/extensions/no-debug-zts-20220829" >> "$INSTALL_DIR/bin/php.ini"
+echo "extension_dir=./$INSTALL_DIR/lib/php/extensions/no-debug-zts-20230831" >> "$INSTALL_DIR/bin/php.ini"
 
 if [ "$HAVE_OPCACHE" == "yes" ]; then
 	echo "zend_extension=opcache.so" >> "$INSTALL_DIR/bin/php.ini"
